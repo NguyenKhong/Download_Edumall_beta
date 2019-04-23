@@ -1,0 +1,4 @@
+requests
+BeautifulSoup
+html5lib
+mpegdash
