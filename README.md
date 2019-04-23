@@ -16,7 +16,7 @@ Download Edumall là ứng dụng đơn giản giúp tải các video trên [edu
 * Chọn một hoặc nhiều khóa học bất kì. Mặc định bỏ trống và Enter là tải về tất cả các khóa học. Ví dụ 1 hoặc 1,3,5 hoặc 1-10 hoặc bỏ trống.
 * Tiếp theo nhập số luồng tải về cùng lúc. Mặc định bỏ trống và enter là 6 luồng.( *Lời khuyên tùy vào tốc độ mạng mà chọn số luồng phù hợp, và số luồng nên <= 10*)
 ![](img/Image_003.png)
-* Quá trình tải mất từ vài phút đến hàng giờ tùy vào từng khóa học, có bao gồm việc tải các tệp tin đính kèm ở mỗi bài học. Sau khi tải các file ts sẽ được ghép lại thành mp4 và lưu trong thư mục với cấu trúc sau:
+* Quá trình tải mất từ vài phút đến hàng giờ tùy vào từng khóa học, có bao gồm việc tải các tệp tin đính kèm ở mỗi bài học. Sau khi tải các tập tin video nhỏ sẽ được ghép lại thành mp4 và lưu trong thư mục với cấu trúc sau:
 ![](img/Image_004.png)
 ### 2.2 Tải các bài giảng còn thiếu trong một khóa học nhất định.
  Tùy chọn này giúp tải các bài giảng còn thiếu nếu trong tùy chọn 1 không tải về được vì một nguyên nhân nào đó.
