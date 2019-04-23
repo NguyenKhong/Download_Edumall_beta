@@ -622,8 +622,8 @@ def main():
         raw_input('\n\tNhan enter de tiep tuc...')
 
 if __name__ == '__main__':
-    os.environ['HTTP_PROXY'] = "http://127.0.0.1:8888"
-    os.environ['HTTPS_PROXY'] = os.environ['HTTP_PROXY']
+    #os.environ['HTTP_PROXY'] = "http://127.0.0.1:8888"
+    #os.environ['HTTPS_PROXY'] = os.environ['HTTP_PROXY']
 
     try:
         main()
