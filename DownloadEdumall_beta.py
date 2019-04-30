@@ -1,7 +1,16 @@
 # -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
+import sys
+
+if __package__ is None and not hasattr(sys, 'frozen'):
+    # direct call of __main__.py
+    import os.path
+    path = os.path.realpath(os.path.abspath(__file__))
+    sys.path.insert(0, os.path.dirname(os.path.dirname(path)))
+
 import requests
 import os
-import sys
 import re
 from bs4 import BeautifulSoup
 import time
@@ -12,14 +21,14 @@ import datetime
 import ntpath
 import struct
 import shutil
-import ffmpeg
 import threading
 import urllib
 import logging
 import ctypes
 import json
 import Queue
-from mpegdash.parser import MPEGDASHParser
+from youtube_dl import YoutubeDL
+from youtube_dl.utils import std_headers
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -32,10 +41,15 @@ BASE_URL = 'https://beta.edumall.vn'
 LOGIN_URL = 'https://lms.edumall.vn/users/sign_in'
 COURSES_URL = 'https://lms.edumall.vn/home/my-course/learning'
 
+if getattr(sys, 'frozen', False):
+    FFMPEG_LOCATION = os.path.join(sys._MEIPASS, 'ffmpeg', 'ffmpeg.exe')
+else:
+    FFMPEG_LOCATION = os.path.join(os.getcwd(), 'ffmpeg', 'ffmpeg.exe')
+
+std_headers['User-Agent'] = USER_AGENT
+
 g_CurrentDir = os.getcwd()
 kernel32 = ctypes.windll.kernel32
-
-
 
 logger = logging.getLogger(__name__)
 
@@ -71,10 +85,6 @@ def pathLeaf(path):
     head, tail = ntpath.split(path)
     return tail or ntpath.basename(head)
 
-def GetFileNameFromUrl(url):
-    urlParsed = urlparse(urllib.unquote(url))
-    fileName = os.path.basename(urlParsed.path).encode('utf-8')
-    return removeCharacters(fileName)
 
 def Request(url, method = 'GET', session = None, **kwargs):
   
@@ -216,56 +226,32 @@ def GetVideoAndDocument(url, isGetLinkDocument = True):
             if item['support'] == 'mpd':
                 return item['url']
 
-    def UrlForMaxBandwith(baseUrl, adaptation_set):
-        bandwidth = []
-        for rep in adaptation_set.representations:
-            bandwidth.append(int(rep.bandwidth))
-        
-        urls = Queue.Queue()
-        seg = adaptation_set.representations[bandwidth.index(max(bandwidth))].segment_lists[0]
-        if seg.initializations[0].source_url:
-            urls.put(urljoin(baseUrl, seg.initializations[0].source_url))
-        for seg_url in seg.segment_urls:
-            urls.put(urljoin(baseUrl, seg_url.media))
-        return urls
-
-    def ExtractInfoMedia(urlMpd):
-        r = Request(urlMpd, headers = headers)
-        infoVideo = {}
-        infoAudio = {}
-        try:
-            mpd = MPEGDASHParser.parse(r.content)
-            period = mpd.periods[0]
-
-            for adapt_set in period.adaptation_sets:
-                if 'video' in adapt_set.mime_type:
-                    infoVideo['urls'] = UrlForMaxBandwith(urlMpd, adapt_set)
-                if 'audio' in adapt_set.mime_type:
-                    infoAudio['urls'] = UrlForMaxBandwith(urlMpd, adapt_set)
-            return {'video' : infoVideo, 'audio' : infoAudio, 'headers' : headers}
-        except Exception as e:
-            logger.warning("Loi: %s - url: %s" % (e, urlMpd))
-            return False
-
-    r = Request(url, session = g_session)
-    entity_id = re.findall(r'media_uiza_id\s=\s\"(.*?)\"', r.content)
-    appId = re.findall(r"appId:\s\'(.*?)\'", r.content)
-    infoToken = {}
     infoMedia = {}
-    if entity_id and appId:
-        infoToken['appId'] = appId[0]
-        infoToken['entity_id'] = entity_id[0]
-        token = GetToken(infoToken)
-        if token == False:
-            return infoMedia, []
-        urlMpd = GetLinkPlay(infoToken, token)
-        if urlMpd == False:
-            return infoMedia, []
-        infoMedia = ExtractInfoMedia(urlMpd)
-        if infoMedia == False:
-            return infoMedia, []
+    r = Request(url, session = g_session)
+    UrlMasterPlayList = re.findall(r'jw_video_url\s=\s"(.*)"', r.content)
+    if UrlMasterPlayList:
+        infoMedia['url'] = UrlMasterPlayList[0]
+        infoMedia['headers'] = {'origin' : BASE_URL, 'referer' : url}
+        infoMedia['protocol'] = 'm3u8'
     else:
-        logger.warning('Loi lay thong tin tai video')
+        entity_id = re.findall(r'media_uiza_id\s=\s\"(.*?)\"', r.content)
+        appId = re.findall(r"appId:\s\'(.*?)\'", r.content)
+        infoToken = {}
+        
+        if entity_id and appId:
+            infoToken['appId'] = appId[0]
+            infoToken['entity_id'] = entity_id[0]
+            token = GetToken(infoToken)
+            if token == False:
+                return infoMedia, []
+            urlMpd = GetLinkPlay(infoToken, token)
+            if urlMpd == False:
+                return infoMedia, []
+            infoMedia['url'] = urlMpd
+            infoMedia['headers'] = headers
+            infoMedia['protocol'] = 'dash'
+        else:
+            logger.warning('Loi lay thong tin tai video')
 
     if isGetLinkDocument:
         soup = BeautifulSoup(r.content, 'html5lib')
@@ -276,39 +262,6 @@ def GetVideoAndDocument(url, isGetLinkDocument = True):
                 urlDocuments.append(urljoin(url, i.a.get('href'))) 
  
     return infoMedia, urlDocuments 
-
-def DownloadFile(url, pathLocal, isSession = False, headers = {}):
-    r = None
-    try:
-        fileName = GetFileNameFromUrl(url)
-        session = None
-        if isSession: session = g_session
-        r = Request(url, session = session, stream = True, headers = headers)
-        
-        with open(os.path.join(pathLocal, fileName), 'wb') as f:
-            for chunk in r.iter_content(5242880):
-                f.write(chunk)
-        print fileName
-    except Exception as e:
-        logger.warning("Loi: %s - url: %s", e, url)
-        return False
-    finally:
-        if not r:
-            r.close()
-    return True
-
-def TryDownloadMedia(info, pathLocal, headers = {}):
-    i = 0
-    q = info['urls']
-    while True:
-        url = q.get()
-        for i in xrange(5):
-            if DownloadFile(url, pathLocal, headers = headers):
-                break
-            time.sleep(1)
-        if i == 4:
-            logger.warning("Tai tap tin %s khong thanh cong", url)
-        q.task_done()
 
 def TryDownloadDocument(urls, pathlocal):
     for url in urls:
@@ -347,9 +300,9 @@ def DownloadCourses():
     if not CoursesDownload: return
     
     try:
-        NumOfThread = raw_input('So luong download [6]: ')
+        NumOfThread = raw_input('So luong download [5]: ')
         if NumOfThread == "":
-            NumOfThread = 6
+            NumOfThread = 5
         NumOfThread = int(NumOfThread)
     except ValueError:
         print ">>> Nhap so"
@@ -377,59 +330,51 @@ def DownloadCourses():
             print Lession['title']
             
             lessionTitleClean = removeCharacters(Lession['title'], '.<>:"/\|?*\r\n')
-            pathDirLession = os.path.join(pathDirCourse, lessionTitleClean)
-            if not os.path.exists(pathDirLession): os.mkdir(pathDirLession) 
-            listPathDirLessions.append(pathDirLession)
-            pathDirLessionVideo = os.path.join(pathDirLession, 'video')
-            if not os.path.exists(pathDirLessionVideo): os.mkdir(pathDirLessionVideo)
-            pathDirLessionAudio = os.path.join(pathDirLession, 'audio')
-            if not os.path.exists(pathDirLessionAudio): os.mkdir(pathDirLessionAudio)
 
             infoMedia, urlDocuments = GetVideoAndDocument(Lession['url'])
             
             if not infoMedia: continue
 
             threadDownloadDocument = threading.Thread(target = TryDownloadDocument, args = (urlDocuments, DirDocuments))
-            threadDownloadDocument.setDaemon(True)
+            threadDownloadDocument.setDaemon(False)
             threadDownloadDocument.start()
 
-            MakeListFileName(list(infoMedia['video']['urls'].queue), os.path.join(pathDirLessionVideo, 'video.txt'))
-            MakeListFileName(list(infoMedia['audio']['urls'].queue), os.path.join(pathDirLessionAudio, 'audio.txt'))
             
+            std_headers.update(infoMedia['headers'])
+            if not os.path.exists(os.path.join(pathDirComplete, lessionTitleClean + ".mp4")):
+                outtemplate = os.path.join(pathDirComplete, lessionTitleClean + '.%(ext)s')
+                
+                hls_prefer_native = False
+                format_opt = 'bestvideo+bestaudio'
+                if infoMedia['protocol'] == 'm3u8':
+                    hls_prefer_native = True
+                    format_opt = 'best'
 
-            for i in range(int(NumOfThread/2)):
-                thread = threading.Thread(target = TryDownloadMedia, args = (infoMedia['video'], pathDirLessionVideo, infoMedia['headers']))
-                thread.setDaemon(True)
-                thread.start()
+                opts = { 'format' : format_opt,
+                        'num_of_thread' : NumOfThread,
+                        'hls_prefer_native': hls_prefer_native,
+                        'outtmpl' : outtemplate,
+                        #'verbose' : True,
+                        'logger' : logger,
+                        'logtostderr': True,
+                        'ffmpeg_location' : FFMPEG_LOCATION,
+                        'consoletitle' : False
+                }
 
-            for i in range(int(NumOfThread/2)):
-                thread = threading.Thread(target = TryDownloadMedia, args = (infoMedia['audio'], pathDirLessionAudio, infoMedia['headers']))
-                thread.setDaemon(True)
-                thread.start()
-
-            infoMedia['video']['urls'].join()
-            infoMedia['audio']['urls'].join()
-            threadDownloadDocument.join()
-
-            print "Xuat dinh dang mp4"
-            ffmpeg.ConvertInFolder(pathDirLession)
-
-            if os.path.exists(os.path.join(pathDirComplete, lessionTitleClean + ".mp4")):
-                shutil.rmtree(pathDirLession)
+                with YoutubeDL(opts) as ydl:
+                    ydl.download([infoMedia['url']])
             
             percentLessions = iLessions*1.0/lenLessions*100.0
-            kernel32.SetConsoleTitleA("Tong: %.2f%% - %s: %.2f%%" % (percentLessions/lenCourses + iCourses*1.0/lenCourses*100.0, course['title'], percentLessions))
+            message = "Total: %.2f%% - %s: %.2f%%" % (percentLessions/lenCourses + iCourses*1.0/lenCourses*100.0, course['title'], percentLessions)
+            kernel32.SetConsoleTitleW(ctypes.c_wchar_p(message))
+            
             iLessions += 1
-            #time.sleep(2)
-
-        print 40*"="
-        iCourses += 1
-        kernel32.SetConsoleTitleA("Tong: %.2f%%" % (iCourses*1.0/lenCourses*100.0))
+            print 40*"*"
         
-
-    #if IsConvert:
-    #    print "Converting ..."
-    #    for i in listPathDirLessions:
+        print 50*"="
+        iCourses += 1
+        message = "Total: %.2f%%" % (iCourses*1.0/lenCourses*100.0)
+        kernel32.SetConsoleTitleW(ctypes.c_wchar_p(message))        
 
 def DonwloadLessions():
     print ""
@@ -494,9 +439,9 @@ def DonwloadLessions():
     if not LessionsDownload: return
 
     try:
-        NumOfThread = raw_input(' So luong download cung luc [6]: ')
+        NumOfThread = raw_input(' So luong download cung luc [5]: ')
         if NumOfThread == "":
-            NumOfThread = 6
+            NumOfThread = 5
         NumOfThread = int(NumOfThread)
     except ValueError:
         print ">>> Nhap so"
@@ -506,45 +451,41 @@ def DonwloadLessions():
         print Lession['title']
         
         lessionTitleClean = removeCharacters(Lession['title'], '.<>:"/\|?*\r\n')
-        pathDirLession = os.path.join(pathDirCourse, lessionTitleClean)
-        if not os.path.exists(pathDirLession): os.mkdir(pathDirLession) 
-        pathDirLessionVideo = os.path.join(pathDirLession, 'video')
-        if not os.path.exists(pathDirLessionVideo): os.mkdir(pathDirLessionVideo)
-        pathDirLessionAudio = os.path.join(pathDirLession, 'audio')
-        if not os.path.exists(pathDirLessionAudio): os.mkdir(pathDirLessionAudio)
 
         infoMedia, urlDocuments = GetVideoAndDocument(Lession['url'])
         
         if not infoMedia: continue
 
         threadDownloadDocument = threading.Thread(target = TryDownloadDocument, args = (urlDocuments, DirDocuments))
-        threadDownloadDocument.setDaemon(True)
+        threadDownloadDocument.setDaemon(False)
         threadDownloadDocument.start()
 
-        MakeListFileName(list(infoMedia['video']['urls'].queue), os.path.join(pathDirLessionVideo, 'video.txt'))
-        MakeListFileName(list(infoMedia['audio']['urls'].queue), os.path.join(pathDirLessionAudio, 'audio.txt'))
         
+        std_headers.update(infoMedia['headers'])
+        if not os.path.exists(os.path.join(pathDirComplete, lessionTitleClean + ".mp4")):
+            outtemplate = os.path.join(pathDirComplete, lessionTitleClean + '.%(ext)s')
+            
+            hls_prefer_native = False
+            format_opt = 'bestvideo+bestaudio'
+            if infoMedia['protocol'] == 'm3u8':
+                hls_prefer_native = True
+                format_opt = 'best'
 
-        for i in range(int(NumOfThread/2)):
-            thread = threading.Thread(target = TryDownloadMedia, args = (infoMedia['video'], pathDirLessionVideo, infoMedia['headers']))
-            thread.setDaemon(True)
-            thread.start()
+            opts = { 'format' : format_opt,
+                    'num_of_thread' : NumOfThread,
+                    'hls_prefer_native': hls_prefer_native,
+                    'outtmpl' : outtemplate,
+                    #'verbose' : True,
+                    'logger' : logger,
+                    'logtostderr': True,
+                    'ffmpeg_location' : FFMPEG_LOCATION,
+                    'consoletitle' : False
+            }
 
-        for i in range(int(NumOfThread/2)):
-            thread = threading.Thread(target = TryDownloadMedia, args = (infoMedia['audio'], pathDirLessionAudio, infoMedia['headers']))
-            thread.setDaemon(True)
-            thread.start()
+            with YoutubeDL(opts) as ydl:
+                ydl.download([infoMedia['url']])
 
-        infoMedia['video']['urls'].join()
-        infoMedia['audio']['urls'].join()
-        threadDownloadDocument.join()
-
-        print "Xuat dinh dang mp4"
-        ffmpeg.ConvertInFolder(pathDirLession)
-
-        if os.path.exists(os.path.join(pathDirComplete, lessionTitleClean + ".mp4")):
-            shutil.rmtree(pathDirLession)
-        print 40*"="
+        print 50*"="
 
 def ParseOption(listOption, rawOption):
     
@@ -573,12 +514,6 @@ def ParseOption(listOption, rawOption):
         except ValueError:
             print ">>> Lam on nhap so."
             return None
-            
-def MakeListFileName(urls, path):
-    with open(path, 'w') as fw:
-        for url in urls:
-            fileName = GetFileNameFromUrl(url)
-            fw.write(fileName + "\n")
 
 def menu():
     if getattr(sys, 'frozen', False):
@@ -601,7 +536,6 @@ def main():
     while (True):
         global g_session
         g_session = requests.Session()
-        g_session.headers['user-agent'] = USER_AGENT
         os.system('cls')
         menu()
         option = raw_input("\t>> ")
@@ -629,5 +563,3 @@ if __name__ == '__main__':
         main()
     except KeyboardInterrupt:
         print "CTRL-C break"
-
-

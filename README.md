@@ -26,4 +26,4 @@ Download Edumall là ứng dụng đơn giản giúp tải các video trên [edu
 ![](img/Image_005.png)
 ## 3. Lưu ý:
 * Sau khi tải về các bài giảng, vào các thư mục **DOWNLOAD/Tên khóa học/Complete/** để lấy các video bài giảng và các tệp đính kèm.
-* Cùng thư mục với phần mềm, khi phần mềm chạy sẽ phát sinh tệp **DownloadEdumall.log**, sau khi tải xong thì mở tệp này và xem có thông báo nào không, nếu có **WARNING, ERROR, CRITICAL** copy chúng và đưa cho nhà phát triển để cải thiện sản phẩm. (*Do nhà phát triển hơi lười nên lâu lâu mới vào xem, các bạn thông cảm.*)
+* Nếu sau khi tải mà còn thiếu video thì mở tập tin **DownloadEdumall.log**, có dòng chữ sau ***WARNING: [hlsnativethread] download key decrypt failed*** thì hãy chắc chắn video thuộc bài giảng đó xem được trên trình duyệt thì mới tải về được. (*Do nhà phát triển hơi lười nên lâu lâu mới vào xem, các bạn thông cảm.*)
