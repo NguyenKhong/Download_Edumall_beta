@@ -28,6 +28,8 @@ from ..utils import (
     encodeFilename,
 )
 
+from natsort import natsort
+
 
 class HlsFDThread(FragmentFD):
     """ A limited implementation that does not require ffmpeg """
@@ -196,7 +198,8 @@ class HlsFDThread(FragmentFD):
         frags_url.join()
 
         fragments_filename = list(ctx['fragment_filename_sanitized'].queue)
-        fragments_filename.sort()
+        #fragments_filename.sort()
+        fragments_filename = natsort(fragments_filename)
 
         for filename in fragments_filename:
             with open(filename, 'rb') as f:
