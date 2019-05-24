@@ -13,6 +13,7 @@ from ..utils import (
     urljoin,
     encodeFilename
 )
+from natsort import natsort
 
 
 class DashSegmentsFDThread(FragmentFD):
@@ -57,8 +58,7 @@ class DashSegmentsFDThread(FragmentFD):
         #    fragments_filename.append(ctx['fragment_filename_sanitized'].get())
         #    ctx['fragment_filename_sanitized'].task_done()
 
-        fragments_filename.sort()
-
+        fragments_filename = natsort(fragments_filename)
       
         #ctx['fragment_filename_sanitized'] = sorted(ctx['fragment_filename_sanitized'])
         for filename in fragments_filename:
