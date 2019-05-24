@@ -38,7 +38,7 @@ g_session = None
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:44.0) Gecko/20100101 Firefox/44.0'
 BASE_URL = 'https://beta.edumall.vn'
-LOGIN_URL = 'https://lms.edumall.vn/users/sign_in'
+LOGIN_URL = 'https://sso.edumall.vn/users/sign_in'
 COURSES_URL = 'https://lms.edumall.vn/home/my-course/learning'
 
 if getattr(sys, 'frozen', False):
