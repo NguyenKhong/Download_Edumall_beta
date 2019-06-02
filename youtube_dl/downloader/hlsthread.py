@@ -195,6 +195,9 @@ class HlsFDThread(FragmentFD):
                 elif is_ad_fragment_end(line):
                     ad_frag_next = False
 
+        for _ in xrange(num_of_thread):
+            frags_url.put(None)
+
         frags_url.join()
 
         fragments_filename = list(ctx['fragment_filename_sanitized'].queue)
@@ -216,7 +219,11 @@ class HlsFDThread(FragmentFD):
         test = self.params.get('test', False)
 
         while True:
-            fragment_index, frag_url, headers = frags_url.get()
+            item = frags_url.get()
+            if item is None:
+                frags_url.task_done()
+                break
+            fragment_index, frag_url, headers = item
             count = 0
             while count <= fragment_retries:
                 try:

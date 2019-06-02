@@ -51,6 +51,8 @@ class DashSegmentsFDThread(FragmentFD):
         for i, fragment in enumerate(fragments):
             fragments_Queue.put((i, fragment))
 
+        for _ in xrange(num_of_thread):
+            fragments_Queue.put(None)
         fragments_Queue.join()
 
         fragments_filename = list(ctx['fragment_filename_sanitized'].queue)
@@ -78,7 +80,12 @@ class DashSegmentsFDThread(FragmentFD):
         skip_unavailable_fragments = self.params.get('skip_unavailable_fragments', True)
         
         while True:
-            i, fragment = fragments_Queue.get()
+           
+            item = fragments_Queue.get()
+            if item is None:
+                fragments_Queue.task_done()
+                break
+            i, fragment = item
             fatal = i == 0 or not skip_unavailable_fragments
             count = 0
             while count <= fragment_retries:
