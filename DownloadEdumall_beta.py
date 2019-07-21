@@ -228,28 +228,27 @@ def GetVideoAndDocument(url, isGetLinkDocument = True):
 
     infoMedia = {}
     r = Request(url, session = g_session)
-    UrlMasterPlayList = re.findall(r'jw_video_url\s=\s"(.*)"', r.content)
-    if UrlMasterPlayList:
-        infoMedia['url'] = UrlMasterPlayList[0]
-        infoMedia['headers'] = {'origin' : BASE_URL, 'referer' : url}
-        infoMedia['protocol'] = 'm3u8'
-    else:
-        entity_id = re.findall(r'media_uiza_id\s=\s\"(.*?)\"', r.content)
-        appId = re.findall(r"appId:\s\'(.*?)\'", r.content)
+    entity_id = re.findall(r'media_uiza_id\s=\s\"(.*?)\"', r.content)
+    appId = re.findall(r"appId:\s\'(.*?)\'", r.content)
+    if entity_id and appId:
         infoToken = {}
-        
-        if entity_id and appId:
-            infoToken['appId'] = appId[0]
-            infoToken['entity_id'] = entity_id[0]
-            token = GetToken(infoToken)
-            if token == False:
-                return infoMedia, []
-            urlMpd = GetLinkPlay(infoToken, token)
-            if urlMpd == False:
-                return infoMedia, []
-            infoMedia['url'] = urlMpd
-            infoMedia['headers'] = headers
-            infoMedia['protocol'] = 'dash'
+        infoToken['appId'] = appId[0]
+        infoToken['entity_id'] = entity_id[0]
+        token = GetToken(infoToken)
+        if token == False:
+            return infoMedia, []
+        urlMpd = GetLinkPlay(infoToken, token)
+        if urlMpd == False:
+            return infoMedia, []
+        infoMedia['url'] = urlMpd
+        infoMedia['headers'] = headers
+        infoMedia['protocol'] = 'dash'
+    else:    
+        UrlMasterPlayList = re.findall(r'jw_video_url\s=\s"(.*)"', r.content)
+        if UrlMasterPlayList:
+            infoMedia['url'] = UrlMasterPlayList[0]
+            infoMedia['headers'] = {'origin' : BASE_URL, 'referer' : url}
+            infoMedia['protocol'] = 'm3u8'
         else:
             logger.warning('Loi lay thong tin tai video')
 
