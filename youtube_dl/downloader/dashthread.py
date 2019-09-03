@@ -39,21 +39,25 @@ class DashSegmentsFDThread(FragmentFD):
         self._prepare_and_start_frag_download(ctx)
         
 
-        fragments_Queue = Queue()
-
+        frags_info = Queue()
+        threads = []
         num_of_thread = int(self.params.get('num_of_thread', 5))
         
         for _ in xrange(num_of_thread):
-            t = Thread(target = self._download_thread, args = (fragments_Queue, ctx, info_dict))
+            t = Thread(target = self._download_thread, args = (frags_info, ctx, info_dict))
             t.setDaemon(True)
             t.start()
+            threads.append(t)
 
         for i, fragment in enumerate(fragments):
-            fragments_Queue.put((i, fragment))
+            frags_info.put((i, fragment))
 
         for _ in xrange(num_of_thread):
-            fragments_Queue.put(None)
-        fragments_Queue.join()
+            frags_info.put(None)
+
+        for t in threads:
+            t.join()
+        # frags_info.join()
 
         fragments_filename = list(ctx['fragment_filename_sanitized'].queue)
         #while True:
@@ -73,59 +77,58 @@ class DashSegmentsFDThread(FragmentFD):
         
         return True
 
-    def _download_thread(self, fragments_Queue, ctx, info_dict):
+    def _download_thread(self, frags_info, ctx, info_dict):
         fragment_base_url = info_dict.get('fragment_base_url')
         
         fragment_retries = self.params.get('fragment_retries', 0)
         skip_unavailable_fragments = self.params.get('skip_unavailable_fragments', True)
         
         while True:
-           
-            item = fragments_Queue.get()
-            if item is None:
-                fragments_Queue.task_done()
-                break
-            i, fragment = item
-            fatal = i == 0 or not skip_unavailable_fragments
-            count = 0
-            while count <= fragment_retries:
-                
-                try:
-                    fragment_url = fragment.get('url')
-                    if not fragment_url:
-                        assert fragment_base_url
-                        fragment_url = urljoin(fragment_base_url, fragment['path'])
-                    success = self._download_fragment(ctx, fragment_url, info_dict, i)
-
-                    if not success:
-                        return False
+            try:
+                item = frags_info.get()
+                if item is None:
                     break
-                except compat_urllib_error.HTTPError as err:
-                    # YouTube may often return 404 HTTP error for a fragment causing the
-                    # whole download to fail. However if the same fragment is immediately
-                    # retried with the same request data this usually succeeds (1-2 attemps
-                    # is usually enough) thus allowing to download the whole file successfully.
-                    # To be future-proof we will retry all fragments that fail with any
-                    # HTTP error.
-                    count += 1
-                    if count <= fragment_retries:
-                        self.report_retry_fragment(err, frag_index, count, fragment_retries)
-                except DownloadError:
-                    # Don't retry fragment if error occurred during HTTP downloading
-                    # itself since it has own retry settings
+                i, fragment = item
+                fatal = i == 0 or not skip_unavailable_fragments
+                count = 0
+                while count <= fragment_retries:
+                    
+                    try:
+                        fragment_url = fragment.get('url')
+                        if not fragment_url:
+                            assert fragment_base_url
+                            fragment_url = urljoin(fragment_base_url, fragment['path'])
+                        success = self._download_fragment(ctx, fragment_url, info_dict, i)
+
+                        if not success:
+                            return False
+                        break
+                    except compat_urllib_error.HTTPError as err:
+                        # YouTube may often return 404 HTTP error for a fragment causing the
+                        # whole download to fail. However if the same fragment is immediately
+                        # retried with the same request data this usually succeeds (1-2 attemps
+                        # is usually enough) thus allowing to download the whole file successfully.
+                        # To be future-proof we will retry all fragments that fail with any
+                        # HTTP error.
+                        count += 1
+                        if count <= fragment_retries:
+                            self.report_retry_fragment(err, frag_index, count, fragment_retries)
+                    except DownloadError:
+                        # Don't retry fragment if error occurred during HTTP downloading
+                        # itself since it has own retry settings
+                        if not fatal:
+                            self.report_skip_fragment(frag_index)
+                            break
+                        raise
+
+                if count > fragment_retries:
                     if not fatal:
                         self.report_skip_fragment(frag_index)
-                        break
-                    raise
-
-            if count > fragment_retries:
-                fragments_Queue.task_done()
-                if not fatal:
-                    self.report_skip_fragment(frag_index)
-                    continue
-                self.report_error('giving up after %s fragment retries' % fragment_retries)
-                return False
-            fragments_Queue.task_done()
+                        continue
+                    self.report_error('giving up after %s fragment retries' % fragment_retries)
+                    return False
+            finally:
+                frags_info.task_done()
 
     def _download_fragment(self, ctx, frag_url, info_dict, fragment_index, headers=None):
         fragment_filename = '%s-Frag%d' % (ctx['tmpfilename'], fragment_index)

@@ -74,6 +74,11 @@ def removeCharacters(value, deletechars = '<>:"/\|?*'):
         value = value.replace(c,'')
     return value
 
+def GetFileNameFromUrl(url):
+    urlParsed = urlparse(urllib.unquote(url))
+    fileName = os.path.basename(urlParsed.path).encode('utf-8')
+    return removeCharacters(fileName)
+
 def pathLeaf(path):
     '''
     Name..........: pathLeaf
@@ -129,8 +134,8 @@ def Login(user, password):
         }
     r = Request(LOGIN_URL, 'POST', data = payload, headers = headers, session = g_session)  
     
-    error = re.findall(r"<div class='error-message'>\s(.*?)\n<\/div>", r.content, re.DOTALL)
-    if error:
+    error = re.findall(r"<p class=\"alert\">(.*?)<\/p>", r.content, re.DOTALL)
+    if error and len(error[0]) != 0:
         logger.critical("Dang nhap loi: %s" % error[0])
         sys.exit(1)
     return True
@@ -138,6 +143,9 @@ def Login(user, password):
 def GetCourses():
     
     r = Request(COURSES_URL, session = g_session)
+    if r is None:
+        logger.warning("Yeu cau den %s bi loi" % COURSES_URL)
+        return []
     soup = BeautifulSoup(r.content, 'html5lib')
     courses = soup.findAll('div', {'class': 'learning-card'})
     if courses == []:
@@ -261,6 +269,34 @@ def GetVideoAndDocument(url, isGetLinkDocument = True):
                 urlDocuments.append(urljoin(url, i.a.get('href'))) 
  
     return infoMedia, urlDocuments 
+
+def DownloadFile(url, pathLocal, isSession = False, headers = {}):
+    r = None
+    fileName = ""
+    try:
+        session = None
+        if isSession: session = g_session
+        r = Request(url, session = session, stream = True, headers = headers)
+        fileAttach = r.headers.get('Content-disposition', '')
+        if 'attachment' in fileAttach:
+            fileName = fileAttach[22:-1]
+        else:
+            fileName = GetFileNameFromUrl(url)
+        
+        fullPath = os.path.join(pathLocal, removeCharacters(fileName))
+        if os.path.exists(fullPath):
+            return True
+        with open(fullPath, 'wb') as f:
+            for chunk in r.iter_content(5242880):
+                f.write(chunk)
+        print fileName
+    except Exception as e:
+        logger.warning("Loi: %s - url: %s", e, url)
+        return False
+    # finally:
+    #     if not r:
+    #         r.close()
+    return True
 
 def TryDownloadDocument(urls, pathlocal):
     for url in urls:

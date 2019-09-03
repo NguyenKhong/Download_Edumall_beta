@@ -121,15 +121,16 @@ class HlsFDThread(FragmentFD):
 
         self._prepare_and_start_frag_download(ctx)
 
-        frags_url = Queue()
+        frags_info = Queue()
         decrypt_info = {'METHOD': 'NONE', 'KEY': None}
 
-        num_of_thread = int(self.params.get('num_of_thread', 5))
-
+        num_of_thread = int(self.params.get('num_of_thread', 10))
+        threads = []
         for _ in xrange(num_of_thread):
-            t = Thread(target = self._download_thread, args = [frags_url, ctx, info_dict, decrypt_info])
+            t = Thread(target = self._download_thread, args = [frags_info, ctx, info_dict, decrypt_info])
             t.setDaemon(True)
             t.start()
+            threads.append(t)
 
         extra_query = None
         extra_param_to_segment_url = info_dict.get('extra_param_to_segment_url')
@@ -159,8 +160,8 @@ class HlsFDThread(FragmentFD):
                     headers = info_dict.get('http_headers', {})
                     if byte_range:
                         headers['Range'] = 'bytes=%d-%d' % (byte_range['start'], byte_range['end'])
-                    frags_url.put((i, frag_url, headers))
-                    i += 1
+                    frags_info.put((frag_index, frag_url, headers))
+                    
                 elif line.startswith('#EXT-X-KEY'):
                     decrypt_url = decrypt_info.get('URI')
                     decrypt_info.update(parse_m3u8_attributes(line[11:]))
@@ -195,10 +196,13 @@ class HlsFDThread(FragmentFD):
                 elif is_ad_fragment_end(line):
                     ad_frag_next = False
 
-        for _ in xrange(num_of_thread):
-            frags_url.put(None)
+        for t in threads:
+            frags_info.put(None)
 
-        frags_url.join()
+        for t in threads:
+            t.join()
+
+        # frags_info.join()
 
         fragments_filename = list(ctx['fragment_filename_sanitized'].queue)
         #fragments_filename.sort()
@@ -213,53 +217,50 @@ class HlsFDThread(FragmentFD):
 
         return True
 
-    def _download_thread(self, frags_url, ctx, info_dict, decrypt_info):
+    def _download_thread(self, frags_info, ctx, info_dict, decrypt_info):
         fragment_retries = self.params.get('fragment_retries', 0)
         skip_unavailable_fragments = self.params.get('skip_unavailable_fragments', True)
         test = self.params.get('test', False)
 
         while True:
-            item = frags_url.get()
-            if item is None:
-                frags_url.task_done()
-                break
-            fragment_index, frag_url, headers = item
-            count = 0
-            while count <= fragment_retries:
-                try:
-                    success, frag_content, fragment_filename = self._download_fragment(
-                        ctx, frag_url, info_dict, fragment_index, headers)
-                    if not success:
-                        continue
+            try:
+                item = frags_info.get()
+                if item is None:
                     break
-                except compat_urllib_error.HTTPError as err:
-                    # Unavailable (possibly temporary) fragments may be served.
-                    # First we try to retry then either skip or abort.
-                    # See https://github.com/ytdl-org/youtube-dl/issues/10165,
-                    # https://github.com/ytdl-org/youtube-dl/issues/10448).
-                    count += 1
-                    if count <= fragment_retries:
-                        self.report_retry_fragment(err, frag_index, count, fragment_retries)
-            if count > fragment_retries:
-                frags_url.task_done()
-                if skip_unavailable_fragments:
-                    self.report_skip_fragment(frag_index)
-                    continue
-                self.report_error(
-                    'giving up after %s fragment retries' % fragment_retries)
-                return False
-            
-            if decrypt_info['METHOD'] == 'AES-128':
-                frag_content = AES.new(
-                    decrypt_info['KEY'], AES.MODE_CBC, decrypt_info['IV']).decrypt(frag_content)
-                down_decrypt, _ = sanitize_open(fragment_filename, 'wb')
-                down_decrypt.write(frag_content)
-                down_decrypt.close()
-            
-            frags_url.task_done()
-            # We only download the first fragment during the test
-            if test:
-                break
+                frag_index, frag_url, headers = item
+                count = 0
+                while count <= fragment_retries:
+                    try:
+                        success, frag_content, fragment_filename = self._download_fragment(
+                            ctx, frag_url, info_dict, frag_index, headers)
+                        if not success:
+                            continue
+                        break
+                    except compat_urllib_error.HTTPError as err:
+                        # Unavailable (possibly temporary) fragments may be served.
+                        # First we try to retry then either skip or abort.
+                        # See https://github.com/ytdl-org/youtube-dl/issues/10165,
+                        # https://github.com/ytdl-org/youtube-dl/issues/10448).
+                        count += 1
+                        if count <= fragment_retries:
+                            self.report_retry_fragment(err, frag_index, count, fragment_retries)
+                if count > fragment_retries:
+                    if skip_unavailable_fragments:
+                        self.report_skip_fragment(frag_index)
+                        continue
+                    self.report_error(
+                        'giving up after %s fragment retries' % fragment_retries)
+                    return False
+                
+                if decrypt_info['METHOD'] == 'AES-128':
+                    frag_content = AES.new(
+                        decrypt_info['KEY'], AES.MODE_CBC, decrypt_info['IV']).decrypt(frag_content)
+                    down_decrypt, _ = sanitize_open(fragment_filename, 'wb')
+                    down_decrypt.write(frag_content)
+                    down_decrypt.close()
+            finally:
+                frags_info.task_done()
+
 
 
     def _download_fragment(self, ctx, frag_url, info_dict, fragment_index, headers=None):
