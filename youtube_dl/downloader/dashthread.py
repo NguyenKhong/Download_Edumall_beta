@@ -88,8 +88,8 @@ class DashSegmentsFDThread(FragmentFD):
                 item = frags_info.get()
                 if item is None:
                     break
-                i, fragment = item
-                fatal = i == 0 or not skip_unavailable_fragments
+                frag_index, fragment = item
+                fatal = frag_index == 0 or not skip_unavailable_fragments
                 count = 0
                 while count <= fragment_retries:
                     
@@ -98,7 +98,7 @@ class DashSegmentsFDThread(FragmentFD):
                         if not fragment_url:
                             assert fragment_base_url
                             fragment_url = urljoin(fragment_base_url, fragment['path'])
-                        success = self._download_fragment(ctx, fragment_url, info_dict, i)
+                        success = self._download_fragment(ctx, fragment_url, info_dict, frag_index)
 
                         if not success:
                             return False

@@ -2,10 +2,10 @@
 from __future__ import unicode_literals
 
 import sys
-
+import os.path
 if __package__ is None and not hasattr(sys, 'frozen'):
     # direct call of __main__.py
-    import os.path
+    
     path = os.path.realpath(os.path.abspath(__file__))
     sys.path.insert(0, os.path.dirname(os.path.dirname(path)))
 
@@ -29,6 +29,7 @@ import json
 import Queue
 from youtube_dl import YoutubeDL
 from youtube_dl.utils import std_headers
+import update
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -40,6 +41,8 @@ USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:44.0) Gecko/20100101 Firefo
 BASE_URL = 'https://beta.edumall.vn'
 LOGIN_URL = 'https://sso.edumall.vn/users/sign_in'
 COURSES_URL = 'https://lms.edumall.vn/home/my-course/learning'
+
+EXTRA_INFO = {"description": "It created by Download_Edumall (^v^)"}
 
 if getattr(sys, 'frozen', False):
     FFMPEG_LOCATION = os.path.join(sys._MEIPASS, 'ffmpeg', 'ffmpeg.exe')
@@ -385,6 +388,8 @@ def DownloadCourses():
                     hls_prefer_native = True
                     format_opt = 'best'
 
+                postprocessors = []
+                postprocessors.append({'key': 'FFmpegMetadata'})
                 opts = { 'format' : format_opt,
                         'num_of_thread' : NumOfThread,
                         'hls_prefer_native': hls_prefer_native,
@@ -393,11 +398,12 @@ def DownloadCourses():
                         'logger' : logger,
                         'logtostderr': True,
                         'ffmpeg_location' : FFMPEG_LOCATION,
-                        'consoletitle' : False
+                        'consoletitle' : False,
+                        'postprocessors': postprocessors
                 }
 
                 with YoutubeDL(opts) as ydl:
-                    ydl.download([infoMedia['url']])
+                    ydl.download([infoMedia['url']], EXTRA_INFO)
             
             percentLessions = iLessions*1.0/lenLessions*100.0
             message = "Total: %.2f%% - %s: %.2f%%" % (percentLessions/lenCourses + iCourses*1.0/lenCourses*100.0, course['title'], percentLessions)
@@ -506,6 +512,8 @@ def DonwloadLessions():
                 hls_prefer_native = True
                 format_opt = 'best'
 
+            postprocessors = []
+            postprocessors.append({'key': 'FFmpegMetadata'})
             opts = { 'format' : format_opt,
                     'num_of_thread' : NumOfThread,
                     'hls_prefer_native': hls_prefer_native,
@@ -514,11 +522,12 @@ def DonwloadLessions():
                     'logger' : logger,
                     'logtostderr': True,
                     'ffmpeg_location' : FFMPEG_LOCATION,
-                    'consoletitle' : False
+                    'consoletitle' : False,
+                    'postprocessors' : postprocessors
             }
 
             with YoutubeDL(opts) as ydl:
-                ydl.download([infoMedia['url']])
+                ydl.download([infoMedia['url']], EXTRA_INFO)
 
         print 50*"="
 
@@ -593,7 +602,13 @@ def main():
 if __name__ == '__main__':
     #os.environ['HTTP_PROXY'] = "http://127.0.0.1:8888"
     #os.environ['HTTPS_PROXY'] = os.environ['HTTP_PROXY']
-
+    try:
+        update.Update()
+        logger.info("Cap nhat phan mem moi thanh cong")
+    except:
+        logger.warning("Cap nhat phan mem khong thanh cong")
+        time.sleep(3)
+    
     try:
         main()
     except KeyboardInterrupt:
