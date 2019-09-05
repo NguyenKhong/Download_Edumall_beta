@@ -1,0 +1,5 @@
+requests==2.20.0
+BeautifulSoup
+html5lib
+pycrypto
+naturalsort
