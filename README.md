@@ -25,7 +25,7 @@ Download Edumall là ứng dụng đơn giản giúp tải các video trên [edu
 * Lựa chọn tải về 1 hoặc nhiều bài giảng. Mặc định bỏ trống và enter thì sẽ tải về hết. Ví dụ: 1 hoặc 3, 5 hoặc 1-10. 
 ![](img/Image_005.png)
 
-##3. Cập nhật:
+## 3. Cập nhật:
 * Sau ngày 05/09/2019 phần mềm có thêm tính năng tự cập nhật.
 * Sau khi cập nhật sẽ tạo ra tập tin ***DownloadEdumall.old.exe*** đây là phiên bản cũ, nếu không cần thiết thì bạn có thể xóa nó.
 * Nếu muốn tắt tính năng tự cập nhật thì gõ lệnh: ***DowloadEdumall.exe -n***
