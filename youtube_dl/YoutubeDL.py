@@ -1992,7 +1992,7 @@ class YoutubeDL(object):
                     return
                 self.record_download_archive(info_dict)
 
-    def download(self, url_list):
+    def download(self, url_list, extra_info = {}):
         """Download a given list of URLs."""
         outtmpl = self.params.get('outtmpl', DEFAULT_OUTTMPL)
         if (len(url_list) > 1 and
@@ -2005,7 +2005,7 @@ class YoutubeDL(object):
             try:
                 # It also downloads the videos
                 res = self.extract_info(
-                    url, force_generic_extractor=self.params.get('force_generic_extractor', False))
+                    url, force_generic_extractor=self.params.get('force_generic_extractor', False), extra_info = extra_info)
             except UnavailableVideoError:
                 self.report_error('unable to download video')
             except MaxDownloadsReached:

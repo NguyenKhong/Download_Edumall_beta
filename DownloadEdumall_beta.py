@@ -2,10 +2,10 @@
 from __future__ import unicode_literals
 
 import sys
-
+import os.path
 if __package__ is None and not hasattr(sys, 'frozen'):
     # direct call of __main__.py
-    import os.path
+    
     path = os.path.realpath(os.path.abspath(__file__))
     sys.path.insert(0, os.path.dirname(os.path.dirname(path)))
 
@@ -29,6 +29,10 @@ import json
 import Queue
 from youtube_dl import YoutubeDL
 from youtube_dl.utils import std_headers
+import update
+import multiprocessing
+import version
+import argparse
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -41,6 +45,8 @@ BASE_URL = 'https://beta.edumall.vn'
 LOGIN_URL = 'https://sso.edumall.vn/users/sign_in'
 COURSES_URL = 'https://lms.edumall.vn/home/my-course/learning'
 
+EXTRA_INFO = {"description": "It created by Download_Edumall (^v^)"}
+
 if getattr(sys, 'frozen', False):
     FFMPEG_LOCATION = os.path.join(sys._MEIPASS, 'ffmpeg', 'ffmpeg.exe')
 else:
@@ -51,7 +57,7 @@ std_headers['User-Agent'] = USER_AGENT
 g_CurrentDir = os.getcwd()
 kernel32 = ctypes.windll.kernel32
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("DownloadEdumall")
 
 stdout_logger = logging.StreamHandler()
 file_logger = logging.FileHandler("DownloadEdumall.log", mode = 'w')
@@ -385,6 +391,8 @@ def DownloadCourses():
                     hls_prefer_native = True
                     format_opt = 'best'
 
+                postprocessors = []
+                postprocessors.append({'key': 'FFmpegMetadata'})
                 opts = { 'format' : format_opt,
                         'num_of_thread' : NumOfThread,
                         'hls_prefer_native': hls_prefer_native,
@@ -393,11 +401,12 @@ def DownloadCourses():
                         'logger' : logger,
                         'logtostderr': True,
                         'ffmpeg_location' : FFMPEG_LOCATION,
-                        'consoletitle' : False
+                        'consoletitle' : False,
+                        'postprocessors': postprocessors
                 }
 
                 with YoutubeDL(opts) as ydl:
-                    ydl.download([infoMedia['url']])
+                    ydl.download([infoMedia['url']], EXTRA_INFO)
             
             percentLessions = iLessions*1.0/lenLessions*100.0
             message = "Total: %.2f%% - %s: %.2f%%" % (percentLessions/lenCourses + iCourses*1.0/lenCourses*100.0, course['title'], percentLessions)
@@ -506,6 +515,8 @@ def DonwloadLessions():
                 hls_prefer_native = True
                 format_opt = 'best'
 
+            postprocessors = []
+            postprocessors.append({'key': 'FFmpegMetadata'})
             opts = { 'format' : format_opt,
                     'num_of_thread' : NumOfThread,
                     'hls_prefer_native': hls_prefer_native,
@@ -514,11 +525,12 @@ def DonwloadLessions():
                     'logger' : logger,
                     'logtostderr': True,
                     'ffmpeg_location' : FFMPEG_LOCATION,
-                    'consoletitle' : False
+                    'consoletitle' : False,
+                    'postprocessors' : postprocessors
             }
 
             with YoutubeDL(opts) as ydl:
-                ydl.download([infoMedia['url']])
+                ydl.download([infoMedia['url']], EXTRA_INFO)
 
         print 50*"="
 
@@ -560,7 +572,7 @@ def menu():
         for i in f:
             sys.stdout.write(i)
             time.sleep(0.07)
-
+    print "Version: %s" % version.VERSION
     print ""
     print "\t0. Thoat"
     print "\t1. Tai cac khoa hoc"
@@ -591,9 +603,15 @@ def main():
         raw_input('\n\tNhan enter de tiep tuc...')
 
 if __name__ == '__main__':
-    #os.environ['HTTP_PROXY'] = "http://127.0.0.1:8888"
-    #os.environ['HTTPS_PROXY'] = os.environ['HTTP_PROXY']
-
+    # os.environ['HTTP_PROXY'] = "http://127.0.0.1:8888"
+    # os.environ['HTTPS_PROXY'] = os.environ['HTTP_PROXY']
+    description = """\
+Please enter -n or --no-update to disable process update."""
+    parser = argparse.ArgumentParser(description = description, formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('-n', '--no-update', action = 'store_false', dest="no_update", help = 'Disable update')
+    args = parser.parse_args()
+    if args.no_update:
+        update.CheckUpdate()
     try:
         main()
     except KeyboardInterrupt:
