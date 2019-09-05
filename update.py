@@ -18,12 +18,14 @@ logger = logging.getLogger("DownloadEdumall")
 
 def CheckUpdate():
     logger.info("Dang cap nhat phan mem moi ...")
+    logger.info("Phien ban hien tai: %s" % version.VERSION)
     try:
         status_code = Update()
         if status_code == UPDATE_OK:
             logger.info("Cap nhat phan mem moi thanh cong")
             sys.exit(0)
         elif status_code == UPDATE_UNNECESSARY:
+            logger.info("Phan mem dang su dung phien ban moi nhat")
             return
         else:
             raise
@@ -35,7 +37,6 @@ def CheckUpdate():
 
 
 def Update():
-    print version.VERSION   
     VERSION_OLD = version.VERSION
     try:
         r = requests.get(URL_VERSION, headers = HEADERS)
@@ -56,10 +57,6 @@ def Update():
         with open(file_name, 'wb') as f:
             for chunk in r.iter_content(5242880):
                 f.write(chunk)
-        print "download OK"
-        # subprocess.call(['del', '/q', file_name_origin, "&&", "rename", file_name, file_name_origin])
-        # subprocess.call(["copy", file_name, file_name_origin])
-        # os.remove(file_name_origin)
         file_name_old = "%s.old%s" % (name, real_ext)
         os.rename(file_name_origin, file_name_old)
         os.rename(file_name, file_name_origin)

@@ -32,6 +32,7 @@ from youtube_dl.utils import std_headers
 import update
 import multiprocessing
 import version
+import argparse
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -604,7 +605,13 @@ def main():
 if __name__ == '__main__':
     # os.environ['HTTP_PROXY'] = "http://127.0.0.1:8888"
     # os.environ['HTTPS_PROXY'] = os.environ['HTTP_PROXY']
-    update.CheckUpdate()
+    description = """\
+Please enter -n or --no-update to disable process update."""
+    parser = argparse.ArgumentParser(description = description, formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('-n', '--no-update', action = 'store_false', dest="no_update", help = 'Disable update')
+    args = parser.parse_args()
+    if args.no_update:
+        update.CheckUpdate()
     try:
         main()
     except KeyboardInterrupt:
