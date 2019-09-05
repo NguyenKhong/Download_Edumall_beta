@@ -7,8 +7,8 @@ import multiprocessing
 import time
 import logging
 
-URL_BINARY = "https://github.com/NguyenKhong/Download_Edumall_beta/raw/version/dist/DownloadEdumall.exe"
-URL_VERSION = "https://raw.githubusercontent.com/NguyenKhong/Download_Edumall_beta/version/version.py"
+URL_BINARY = "https://github.com/NguyenKhong/Download_Edumall_beta/raw/master/dist/DownloadEdumall.exe"
+URL_VERSION = "https://raw.githubusercontent.com/NguyenKhong/Download_Edumall_beta/master/version.py"
 HEADERS = {"User-Agent" : "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:44.0) Gecko/20100101 Firefox/44.0"}
 UPDATE_OK = 1
 UPDATE_ERROR = 2
