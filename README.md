@@ -30,7 +30,7 @@ Download Edumall là ứng dụng đơn giản giúp tải các video trên [edu
 * Sau khi cập nhật sẽ tạo ra tập tin ***DownloadEdumall.old.exe*** đây là phiên bản cũ, nếu không cần thiết thì bạn có thể xóa nó.
 * Nếu muốn tắt tính năng tự cập nhật thì gõ lệnh: ***DowloadEdumall.exe -n***
 * Thông tin thêm:
-	![](img/Image_006.png)
+* ![](img/Image_006.png)
 ## 4. Lưu ý:
 * Sau khi tải về các bài giảng, vào các thư mục **DOWNLOAD/Tên khóa học/Complete/** để lấy các video bài giảng và các tệp đính kèm.
 * Nếu sau khi tải mà còn thiếu video thì mở tập tin **DownloadEdumall.log**, có dòng chữ sau ***WARNING: [hlsnativethread] download key decrypt failed*** thì hãy chắc chắn video thuộc bài giảng đó xem được trên trình duyệt thì mới tải về được. (*Do nhà phát triển hơi lười nên lâu lâu mới vào xem, các bạn thông cảm.*)
