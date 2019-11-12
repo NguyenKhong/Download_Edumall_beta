@@ -1921,7 +1921,7 @@ class YoutubeDL(object):
             except (ContentTooShortError, ) as err:
                 self.report_error('content too short (expected %s bytes and served %s)' % (err.expected, err.downloaded))
                 return
-
+                
             if success and filename != '-':
                 # Fixup content
                 fixup_policy = self.params.get('fixup')

@@ -14,7 +14,7 @@ from ..utils import (
     encodeFilename
 )
 from natsort import natsort
-
+from var_dump import var_export
 
 class DashSegmentsFDThread(FragmentFD):
     """
@@ -24,7 +24,7 @@ class DashSegmentsFDThread(FragmentFD):
     FD_NAME = 'dashsegmentsthread'
 
     def real_download(self, filename, info_dict):
-
+       
         fragment_base_url = info_dict.get('fragment_base_url')
         fragments = info_dict['fragments'][:1] if self.params.get(
             'test', False) else info_dict['fragments']
@@ -54,10 +54,10 @@ class DashSegmentsFDThread(FragmentFD):
 
         for _ in xrange(num_of_thread):
             frags_info.put(None)
-
-        for t in threads:
-            t.join()
-        # frags_info.join()
+        
+        for thread in threads:
+            while thread.is_alive(): # it may be work on windows when we pess CTRL+C 
+                time.sleep(1)
 
         fragments_filename = list(ctx['fragment_filename_sanitized'].queue)
         #while True:
@@ -74,12 +74,10 @@ class DashSegmentsFDThread(FragmentFD):
         
         del ctx['fragment_filename_sanitized']
         self._finish_frag_download(ctx)
-        
         return True
 
     def _download_thread(self, frags_info, ctx, info_dict):
         fragment_base_url = info_dict.get('fragment_base_url')
-        
         fragment_retries = self.params.get('fragment_retries', 0)
         skip_unavailable_fragments = self.params.get('skip_unavailable_fragments', True)
         
@@ -98,7 +96,10 @@ class DashSegmentsFDThread(FragmentFD):
                         if not fragment_url:
                             assert fragment_base_url
                             fragment_url = urljoin(fragment_base_url, fragment['path'])
-                        success = self._download_fragment(ctx, fragment_url, info_dict, frag_index)
+                        headers = info_dict.get('http_headers', {}).copy()
+                        if fragment.get('range', ''):
+                            headers['range'] = "bytes=%s" % fragment.get('range')
+                        success = self._download_fragment(ctx, fragment_url, info_dict, frag_index, headers)
 
                         if not success:
                             return False

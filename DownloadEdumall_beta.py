@@ -33,6 +33,8 @@ import update
 import multiprocessing
 import version
 import argparse
+import glob
+from var_dump import var_dump, var_export
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -41,11 +43,12 @@ os.environ['HTTPSVERIFY'] = '0'
 g_session = None
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:44.0) Gecko/20100101 Firefox/44.0'
-BASE_URL = 'https://beta.edumall.vn'
+BASE_URL = 'https://edumall.vn/'
 LOGIN_URL = 'https://sso.edumall.vn/users/sign_in'
-COURSES_URL = 'https://lms.edumall.vn/home/my-course/learning'
+GET_COURSES_URL = 'https://lms.edumall.vn/users/get_courses?page=%s'
+COURSES_URL = "https://lms.edumall.vn/home/my-course/learning"
 
-EXTRA_INFO = {"description": "It created by Download_Edumall (^v^)"}
+EXTRA_INFO = {"description": "Download_Edumall (^v^)"}
 
 if getattr(sys, 'frozen', False):
     FFMPEG_LOCATION = os.path.join(sys._MEIPASS, 'ffmpeg', 'ffmpeg.exe')
@@ -68,6 +71,11 @@ file_logger.setFormatter(formatter)
 logger.addHandler(stdout_logger)
 logger.addHandler(file_logger)
 logger.setLevel(logging.INFO)
+
+def DeleteFilesError(path):
+    for file in glob.glob(path):
+        if os.path.isfile(file):
+            os.remove(file)
 
 def NoAccentVietnamese(s):
     s = s.decode('utf-8')
@@ -121,7 +129,7 @@ def Request(url, method = 'GET', session = None, **kwargs):
     return response
 
 def Login(user, password):
-    
+    # Request(BASE_URL, session = g_session)
     r = Request(LOGIN_URL, session = g_session, headers = {'referer' : BASE_URL})
 
     authenticity_token = re.findall(r'"authenticity_token".*value="(.*?)"', r.content)
@@ -131,9 +139,7 @@ def Login(user, password):
 
     payload = { 'user[email]' : user,
                 'user[password]': password,
-                'authenticity_token' : authenticity_token[0],
-                'request' : '',
-                'return' : ''
+                'authenticity_token' : authenticity_token[0]
         }
     headers = { 'origin' : '{uri.scheme}://{uri.netloc}'.format(uri=urlparse(LOGIN_URL)) ,
                 'referer' : LOGIN_URL
@@ -146,62 +152,76 @@ def Login(user, password):
         sys.exit(1)
     return True
 
-def GetCourses():
-    
-    r = Request(COURSES_URL, session = g_session)
-    if r is None:
-        logger.warning("Yeu cau den %s bi loi" % COURSES_URL)
+def GetCoursesPerPage(index):
+    try:
+        r = Request(GET_COURSES_URL % index, session = g_session, headers = {'referer' : COURSES_URL})
+        if r is None:
+            logger.warning("Yeu cau den %s bi loi" % GET_COURSES_URL)
+            return []
+        result = r.json if isinstance(r.json, dict) else r.json()
+        return result.get("courses", [])
+    except Exception as e:
+        logger.critical('Error: %s - url: %s', e, GET_COURSES_URL)
         return []
-    soup = BeautifulSoup(r.content, 'html5lib')
-    courses = soup.findAll('div', {'class': 'learning-card'})
+
+def GetCourses():
+    courses = []
+    for i in range(1, 100):
+        result = GetCoursesPerPage(i)
+        if result == []: break
+        courses += result
     if courses == []:
         logger.warning("Loi Phan tich khoa hoc")
         return []
-
     UrlCourses = []
     for course in courses:
-        name = course.a.find('div', {'class' : 'row ellipsis-2lines course-title'}).text
+        name = course.get('name', '')
         if name == []:
             logger.warning("Loi Phan tich tieu de khoa hoc")
             return []
-        UrlCourses.append({'url' : urljoin(COURSES_URL, course.a['href']), 'title' : NoAccentVietnamese(name).strip()})
-
+        url = urljoin(COURSES_URL, "/course/%s/lecture/%s" % (course.get('alias_name'), course.get('last_lecture_index')))
+        UrlCourses.append({'url' : url, 'title' : NoAccentVietnamese(name).strip()})
     return UrlCourses
 
 def GetLessions(url):
-    r = Request(url, session = g_session)
-    soup = BeautifulSoup(r.content, 'html5lib')
-    Menu = soup.find('div', {'class' : 'menu'})
+    # r = Request(url, session = g_session)
+    # soup = BeautifulSoup(r.content, 'html5lib')
+    # Menu = soup.find('div', {'class' : 'menu'})
     
-    buttonBuy = soup.findAll('a', {'class' : 'btn-red btn-buy'})
-    if buttonBuy:
-        print "Khoa hoc nay chua mua."
-        return [] 
-    if not Menu:
-        logger.warning('Loi Khong the phan tich toan bo bai giang nay')
-        return []
-    if not Menu.a.get('href'):
-        logger.warning('Loi Thieu url de phan tich bai giang')
-        return []
+    # buttonBuy = soup.findAll('a', {'class' : 'btn-red btn-buy'})
+    # if buttonBuy:
+    #     print "Khoa hoc nay chua mua."
+    #     return [] 
+    # if not Menu:
+    #     logger.warning('Loi Khong the phan tich toan bo bai giang nay')
+    #     return []
+    # if not Menu.a.get('href'):
+    #     logger.warning('Loi Thieu url de phan tich bai giang')
+    #     return []
 
-    url = urljoin(url, Menu.a.get('href'))
+    # url = urljoin(url, Menu.a.get('href'))
     r = Request(url, session = g_session)
     soup = BeautifulSoup(r.content, 'html5lib') 
-    Lessions = soup.findAll('div', {'class' : re.compile('^row chap-item')})
+    Lessions = soup.select('.course_chapter')
     if not Lessions:
         logger.warning('Loi Khong the lay danh sach bai giang')
         return []
     UrlLessions = []
     for lession in Lessions:
-        name = lession.find('div', {'class' : 'row no-margin'})
+        name = lession.find('div', {'class' : 'name_course'})
         if not name:
             logger.warning("Loi Phan tich Ten bai giang")
             return []
         name = removeCharacters(name.text)
-        UrlLessions.append({'url' : urljoin(url, lession.a.get('href')), 'title' : NoAccentVietnamese(name).strip()})
-    return UrlLessions 
+        UrlLessions.append({'url' : urljoin(url, lession.get('href')), 'title' : NoAccentVietnamese(name).strip()})
 
-def GetVideoAndDocument(url, isGetLinkDocument = True):
+    documents = soup.select('.document')
+    urlDocuments = []    
+    for document in documents:
+        urlDocuments.append(urljoin(url, document.a.get('href'))) 
+    return UrlLessions, urlDocuments 
+
+def GetVideo(url, isGetLinkDocument = True):
     headers = { 'origin' : 'https://sdk.uiza.io',
                     'referer' : 'https://sdk.uiza.io/v3/index.html'
             }
@@ -250,10 +270,10 @@ def GetVideoAndDocument(url, isGetLinkDocument = True):
         infoToken['entity_id'] = entity_id[0]
         token = GetToken(infoToken)
         if token == False:
-            return infoMedia, []
+            return infoMedia
         urlMpd = GetLinkPlay(infoToken, token)
         if urlMpd == False:
-            return infoMedia, []
+            return infoMedia
         infoMedia['url'] = urlMpd
         infoMedia['headers'] = headers
         infoMedia['protocol'] = 'dash'
@@ -265,16 +285,7 @@ def GetVideoAndDocument(url, isGetLinkDocument = True):
             infoMedia['protocol'] = 'm3u8'
         else:
             logger.warning('Loi lay thong tin tai video')
-
-    if isGetLinkDocument:
-        soup = BeautifulSoup(r.content, 'html5lib')
-        documentDownload = soup.find('div', {'id': 'lecture-tab-download'})
-        urlDocuments = [] 
-        if documentDownload.text.find(u'Tài liệu của bài học') != -1:
-            for i in documentDownload.findAll('li'):
-                urlDocuments.append(urljoin(url, i.a.get('href'))) 
- 
-    return infoMedia, urlDocuments 
+    return infoMedia
 
 def DownloadFile(url, pathLocal, isSession = False, headers = {}):
     r = None
@@ -304,7 +315,7 @@ def DownloadFile(url, pathLocal, isSession = False, headers = {}):
     #         r.close()
     return True
 
-def TryDownloadDocument(urls, pathlocal):
+def TryDownloadDocument(urls, pathLocal):
     for url in urls:
         for i in xrange(5):
             if DownloadFile(url, pathLocal, isSession=True):
@@ -364,21 +375,26 @@ def DownloadCourses():
         if not os.path.exists(pathDirComplete): os.mkdir(pathDirComplete)
         DirDocuments = os.path.join(pathDirComplete, "Documents")
         if not os.path.exists(DirDocuments): os.mkdir(DirDocuments)
-        Lessions = GetLessions(course['url'])
+        Lessions, urlDocuments = GetLessions(course['url'])
         iLessions = 1
         lenLessions = len(Lessions)
+        threadDownloadDocument = threading.Thread(target = TryDownloadDocument, args = (urlDocuments, DirDocuments))
+        threadDownloadDocument.setDaemon(False)
+        threadDownloadDocument.start()
+        try:
+            DeleteFilesError(pathDirComplete + "/*.part")
+            DeleteFilesError(pathDirComplete + "/*.part-Frag*")
+        except:
+            pass
         for Lession in Lessions:
             print Lession['title']
             
             lessionTitleClean = removeCharacters(Lession['title'], '.<>:"/\|?*\r\n')
 
-            infoMedia, urlDocuments = GetVideoAndDocument(Lession['url'])
+            infoMedia = GetVideo(Lession['url'])
             
             if not infoMedia: continue
 
-            threadDownloadDocument = threading.Thread(target = TryDownloadDocument, args = (urlDocuments, DirDocuments))
-            threadDownloadDocument.setDaemon(False)
-            threadDownloadDocument.start()
 
             
             std_headers.update(infoMedia['headers'])
@@ -398,6 +414,8 @@ def DownloadCourses():
                         'hls_prefer_native': hls_prefer_native,
                         'outtmpl' : outtemplate,
                         #'verbose' : True,
+                        'fragment_retries' : 4,
+                        'retries': 4,
                         'logger' : logger,
                         'logtostderr': True,
                         'ffmpeg_location' : FFMPEG_LOCATION,
@@ -466,7 +484,7 @@ def DonwloadLessions():
     if not os.path.exists(pathDirComplete): os.mkdir(pathDirComplete)
     DirDocuments = os.path.join(pathDirComplete, "Documents")
     if not os.path.exists(DirDocuments): os.mkdir(DirDocuments)
-    Lessions = GetLessions(course['url'])
+    Lessions, urlDocuments = GetLessions(course['url'])
     if not Lessions: return
     print "Danh sach cac bai giang: "
     i = 1
@@ -491,23 +509,28 @@ def DonwloadLessions():
         print ">>> Nhap so"
         return
 
+    threadDownloadDocument = threading.Thread(target = TryDownloadDocument, args = (urlDocuments, DirDocuments))
+    threadDownloadDocument.setDaemon(False)
+    threadDownloadDocument.start()
+    try:
+        DeleteFilesError(pathDirComplete + "/*.part")
+        DeleteFilesError(pathDirComplete + "/*.part-Frag*")
+    except:
+        pass
     for Lession in LessionsDownload:
         print Lession['title']
         
         lessionTitleClean = removeCharacters(Lession['title'], '.<>:"/\|?*\r\n')
 
-        infoMedia, urlDocuments = GetVideoAndDocument(Lession['url'])
+        infoMedia= GetVideo(Lession['url'])
         
         if not infoMedia: continue
 
-        threadDownloadDocument = threading.Thread(target = TryDownloadDocument, args = (urlDocuments, DirDocuments))
-        threadDownloadDocument.setDaemon(False)
-        threadDownloadDocument.start()
 
         
         std_headers.update(infoMedia['headers'])
         if not os.path.exists(os.path.join(pathDirComplete, lessionTitleClean + ".mp4")):
-            outtemplate = os.path.join(pathDirComplete, lessionTitleClean + '.%(ext)s')
+            outtemplate = os.path.join(pathDirComplete, lessionTitleClean + '.mp4')
             
             hls_prefer_native = False
             format_opt = 'bestvideo+bestaudio'
@@ -521,7 +544,9 @@ def DonwloadLessions():
                     'num_of_thread' : NumOfThread,
                     'hls_prefer_native': hls_prefer_native,
                     'outtmpl' : outtemplate,
-                    #'verbose' : True,
+                    # 'verbose' : True,
+                    'fragment_retries' : 4,
+                    'retries': 4,
                     'logger' : logger,
                     'logtostderr': True,
                     'ffmpeg_location' : FFMPEG_LOCATION,
@@ -616,3 +641,4 @@ Please enter -n or --no-update to disable process update."""
         main()
     except KeyboardInterrupt:
         print "CTRL-C break"
+        sys.exit(0)

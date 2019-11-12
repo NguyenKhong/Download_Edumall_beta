@@ -2089,7 +2089,7 @@ class InfoExtractor(object):
                 extract_Initialization(segment_list)
                 segment_urls_e = segment_list.findall(_add_ns('SegmentURL'))
                 if segment_urls_e:
-                    ms_info['segment_urls'] = [segment.attrib['media'] for segment in segment_urls_e]
+                    ms_info['segment_urls'] = [{'media': segment.attrib['media'], 'media_range': segment.attrib.get('mediaRange', '')}  for segment in segment_urls_e]
             else:
                 segment_template = element.find(_add_ns('SegmentTemplate'))
                 if segment_template is not None:
@@ -2278,10 +2278,12 @@ class InfoExtractor(object):
                                 representation_ms_info['timescale']) if 'segment_duration' in representation_ms_info else None
                             for segment_url in representation_ms_info['segment_urls']:
                                 fragment = {
-                                    location_key(segment_url): segment_url,
+                                    location_key(segment_url['media']): segment_url['media'],
                                 }
                                 if segment_duration:
                                     fragment['duration'] = segment_duration
+                                if segment_url['media_range']:
+                                    fragment['range'] = segment_url['media_range']
                                 fragments.append(fragment)
                             representation_ms_info['fragments'] = fragments
                         # If there is a fragments key available then we correctly recognized fragmented media.
@@ -2300,7 +2302,15 @@ class InfoExtractor(object):
                                 initialization_url = representation_ms_info['initialization_url']
                                 if not f.get('url'):
                                     f['url'] = initialization_url
-                                f['fragments'].append({location_key(initialization_url): initialization_url})
+                                firstRange = ''
+                                if representation_ms_info['segment_urls'][0]['media_range']:
+                                    r = representation_ms_info['segment_urls'][0]['media_range'].split('-')
+                                    firstRange = "0-%d" % (int(r[0])-1)
+                                fragment = {
+                                    location_key(initialization_url): initialization_url,
+                                    'range' : firstRange
+                                }
+                                f['fragments'].append(fragment)
                             f['fragments'].extend(representation_ms_info['fragments'])
                         else:
                             # Assuming direct URL to unfragmented media.

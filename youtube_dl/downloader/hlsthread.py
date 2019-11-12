@@ -198,11 +198,12 @@ class HlsFDThread(FragmentFD):
 
         for t in threads:
             frags_info.put(None)
-
-        for t in threads:
-            t.join()
-
-        # frags_info.join()
+        try:
+            for thread in threads:
+                while thread.is_alive(): # it may be work on window when we pess CTRL+C 
+                    time.sleep(1)
+        except KeyboardInterrupt:
+            return False
 
         fragments_filename = list(ctx['fragment_filename_sanitized'].queue)
         #fragments_filename.sort()
@@ -218,7 +219,7 @@ class HlsFDThread(FragmentFD):
         return True
 
     def _download_thread(self, frags_info, ctx, info_dict, decrypt_info):
-        fragment_retries = self.params.get('fragment_retries', 0)
+        fragment_retries = self.params.get('fragment_retries', 4)
         skip_unavailable_fragments = self.params.get('skip_unavailable_fragments', True)
         test = self.params.get('test', False)
 

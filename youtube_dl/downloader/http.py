@@ -102,6 +102,9 @@ class HttpFD(FileDownloader):
             has_range = range_start is not None
             ctx.has_range = has_range
             request = sanitized_Request(url, None, headers)
+            for header in headers:
+                if header.lower() == "range":
+                    has_range = False
             if has_range:
                 set_range(request, range_start, range_end)
             # Establish connection
