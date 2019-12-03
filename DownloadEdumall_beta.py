@@ -562,30 +562,30 @@ def DonwloadLessions():
 def ParseOption(listOption, rawOption):
     
     listOptionDownload = listOption
-    if rawOption != "":
-        try:
-            listOptionDownload = []
-            option = rawOption.split(",")
-            lenCourses = len(listOption)
-            for i in option:
-                if i.find("-") != -1:
-                    c = i.split("-")
-                    c = map(int, c)
-                    c[0] -= 1
-                    if c[0] < 0:
-                        c[0] = 0
-                    listOptionDownload += listOption[c[0]:c[1]]
-                else:
-                    index = int(i) - 1
-                    if index > lenCourses - 1:
-                        index = lenCourses - 1
-                    if index < 0:
-                        index = 0
-                    listOptionDownload.append(listOption[index])
-            return list(listOptionDownload)
-        except ValueError:
-            print ">>> Lam on nhap so."
-            return None
+    if rawOption == "": return listOptionDownload
+    try:
+        listOptionDownload = []
+        option = rawOption.split(",")
+        lenCourses = len(listOption)
+        for i in option:
+            if i.find("-") != -1:
+                c = i.split("-")
+                c = map(int, c)
+                c[0] -= 1
+                if c[0] < 0:
+                    c[0] = 0
+                listOptionDownload += listOption[c[0]:c[1]]
+            else:
+                index = int(i) - 1
+                if index > lenCourses - 1:
+                    index = lenCourses - 1
+                if index < 0:
+                    index = 0
+                listOptionDownload.append(listOption[index])
+        return list(listOptionDownload)
+    except ValueError:
+        print ">>> Lam on nhap so."
+        return None
 
 def menu():
     if getattr(sys, 'frozen', False):
