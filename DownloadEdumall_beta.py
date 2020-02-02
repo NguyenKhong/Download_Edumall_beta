@@ -399,7 +399,7 @@ def DownloadCourses():
             
             std_headers.update(infoMedia['headers'])
             if not os.path.exists(os.path.join(pathDirComplete, lessionTitleClean + ".mp4")):
-                outtemplate = os.path.join(pathDirComplete, lessionTitleClean + '.%(ext)s')
+                outtemplate = "\\\\?\\" + os.path.join(pathDirComplete, lessionTitleClean + '.%(ext)s')
                 
                 hls_prefer_native = False
                 format_opt = 'bestvideo+bestaudio'
@@ -530,7 +530,7 @@ def DonwloadLessions():
         
         std_headers.update(infoMedia['headers'])
         if not os.path.exists(os.path.join(pathDirComplete, lessionTitleClean + ".mp4")):
-            outtemplate = os.path.join(pathDirComplete, lessionTitleClean + '.mp4')
+            outtemplate = "\\\\?\\" + os.path.join(pathDirComplete, lessionTitleClean + '.mp4')
             
             hls_prefer_native = False
             format_opt = 'bestvideo+bestaudio'
