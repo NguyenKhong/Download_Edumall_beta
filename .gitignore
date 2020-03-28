@@ -10,3 +10,5 @@ ffmpeg.py
 DownloadEdumall_beta_origin.py
 DOWNLOAD
 DownloadEdumall.old.exe
+youtube_dl
+__pycache__

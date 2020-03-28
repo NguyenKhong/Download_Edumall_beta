@@ -2,7 +2,7 @@
 
 block_cipher = None
 
-added_files = [('.\\ffmpeg', 'ffmpeg'), ('.\\logo', 'logo')]
+added_files = [('.\\ffmpeg', 'ffmpeg'), ('.\\logo', 'logo'), ('.\\streamlink\\plugins', 'plugins')]
 
 a = Analysis(['DownloadEdumall_beta.py'],
              pathex=['E:\\Language\\Python\\edumall\\Download_Edumall_beta'],
