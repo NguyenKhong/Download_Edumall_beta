@@ -12,3 +12,5 @@ DOWNLOAD
 DownloadEdumall.old.exe
 youtube_dl
 __pycache__
+path.txt
+*.bak
