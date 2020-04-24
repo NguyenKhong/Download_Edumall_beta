@@ -5,7 +5,7 @@ import os
 import re
 from bs4 import BeautifulSoup
 import time
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, quote
 import threading
 import logging
 import ctypes
@@ -15,6 +15,7 @@ import version
 import argparse
 from streamlink_cli.main import main as streamlink_cli_main
 from utils import *
+import hexdump
 
 os.environ['HTTPSVERIFY'] = '0'
 
@@ -150,7 +151,7 @@ def GetLessions(url):
         urlDocuments.append(urljoin(url, document.a.get('href'))) 
     return UrlLessions, urlDocuments 
 
-def GetVideo(url, isGetLinkDocument = True):
+def GetVideo(url):
     headers = { 'origin' : 'https://sdk.uiza.io',
                     'referer' : 'https://sdk.uiza.io/v3/index.html'
             }
@@ -210,7 +211,13 @@ def GetVideo(url, isGetLinkDocument = True):
         UrlMasterPlayList = re.findall(r'jw_video_url\s=\s"(.*)"', r.text)
         if UrlMasterPlayList:
             infoMedia['url'] = UrlMasterPlayList[0]
-            infoMedia['headers'] = {'origin' : BASE_URL, 'referer' : url}
+            #fix referer url path do not encode
+            tmp = url.split("/")
+            if len(tmp) >= 3:
+                url_referer = tmp[0] + "//" + tmp[2] + "/" + quote("/".join(tmp[3:]))
+            else:
+                url_referer = tmp[0] + "//" + tmp[2] + "/"
+            infoMedia['headers'] = {'origin' : BASE_URL, 'referer' : url_referer}
             infoMedia['protocol'] = 'm3u8'
         else:
             logger.warning('Loi lay thong tin tai video')
@@ -383,8 +390,8 @@ def DownloadVideoAndDocument(lessons, DirCourse, DirDocuments, urlDocuments, Num
     for lesson in lessons:
         print(" +> %s" % lesson['title'])
 
-        infoMedia= GetVideo(lesson['url'])
-        
+        infoMedia = GetVideo(lesson['url'])
+
         if not infoMedia: continue
 
         pathFileOutput = os.path.join(DirCourse, "%s.mp4" % (cleanName(lesson['title'])))
@@ -418,7 +425,8 @@ def DownloadVideoAndDocument(lessons, DirCourse, DirDocuments, urlDocuments, Num
             if PLUGIN_DIR:
                 options.append('--plugin-dirs')
                 options.append(PLUGIN_DIR)
-
+            if "headers" not in infoMedia:
+                infoMedia["headers"] = {}
             infoMedia["headers"].update({"User-Agent": USER_AGENT})
             
             for k, v in infoMedia["headers"].items():
