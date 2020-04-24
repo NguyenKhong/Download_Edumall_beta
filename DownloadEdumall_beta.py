@@ -15,7 +15,6 @@ import version
 import argparse
 from streamlink_cli.main import main as streamlink_cli_main
 from utils import *
-import hexdump
 
 os.environ['HTTPSVERIFY'] = '0'
 
