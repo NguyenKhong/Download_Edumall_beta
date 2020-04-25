@@ -5,7 +5,7 @@ import os
 import re
 from bs4 import BeautifulSoup
 import time
-from urllib.parse import urljoin, urlparse, quote
+from urllib.parse import urljoin, urlparse, quote, unquote
 import threading
 import logging
 import ctypes
@@ -222,11 +222,28 @@ def GetVideo(url):
             logger.warning('Loi lay thong tin tai video')
     return infoMedia
 
+def fixUrl(url):
+    new_url = url
+    if url.count("https://") >= 2:
+        rfind_http = url.rfind("https://")
+        if rfind_http > -1:
+            new_url = url[rfind_http:]
+    new_url = unquote(new_url)
+    tmp = new_url.split("/")
+    if len(tmp) >= 3:
+        new_url = tmp[0] + "//" + tmp[2] + "/" + quote("/".join(tmp[3:]))
+    else:
+        new_url = tmp[0] + "//" + tmp[2] + "/"
+    return new_url
+
+
 def DownloadFile(url, pathLocal, headers = {}):
+    url = fixUrl(url)
     r = None
     fileName = ""
     try:
         r = Request(url, stream = True, headers = headers)
+        if r is None: return False
         fileAttach = r.headers.get('Content-disposition', '')
         if 'attachment' in fileAttach:
             fileName = fileAttach[22:-1]
@@ -484,7 +501,6 @@ def menu():
     print("")
 
 def main():  
-    setupLogger()
     while (True):
         global g_session
         g_session = requests.Session()
@@ -515,6 +531,7 @@ Please enter -n or --no-update to disable process update."""
     parser = argparse.ArgumentParser(description = description, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-n', '--no-update', action = 'store_false', dest="no_update", help = 'Disable update')
     args = parser.parse_args()
+    setupLogger()
     if args.no_update:
         update.CheckUpdate()
     try:

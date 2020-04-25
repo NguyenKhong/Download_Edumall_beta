@@ -2,6 +2,8 @@
 
 Download Edumall là ứng dụng đơn giản giúp tải các video trên [edumall.vn](https://edumall.vn/)
 
+Phiên bản: *2020.04.25*
+
 ![](img/Image_001.png)
 
 # Hướng dẫn sử dụng:

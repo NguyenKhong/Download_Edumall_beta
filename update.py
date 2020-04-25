@@ -42,9 +42,9 @@ def Update():
         r = requests.get(URL_VERSION, headers = HEADERS)
     except Exception as e:
         raise e
-    index = r.content.find("VERSION")
+    index = r.text.find("VERSION")
     if index == -1: return UPDATE_ERROR
-    VERSION = r.content[index+11:index+21]
+    VERSION = r.text[index+11:index+21]
     if datetime.strptime(VERSION_OLD, "%Y.%m.%d") >= datetime.strptime(VERSION, "%Y.%m.%d"): return UPDATE_UNNECESSARY
     try:
         r = requests.get(URL_BINARY, headers = HEADERS)
